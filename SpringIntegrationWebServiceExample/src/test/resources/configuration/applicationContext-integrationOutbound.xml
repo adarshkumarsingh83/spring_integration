@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                           http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/context
+                           http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <context:component-scan base-package="com.adarsh.spring.integration"/>
+
+    <bean id="restTemplate" class="org.springframework.web.client.RestTemplate">
+        <property name="messageConverters">
+            <list>
+                <bean class="org.springframework.http.converter.StringHttpMessageConverter"/>
+                <bean class="org.springframework.http.converter.xml.MarshallingHttpMessageConverter">
+                    <property name="marshaller" ref="marshaller"/>
+                    <property name="unmarshaller" ref="marshaller"/>
+                </bean>
+                <bean class="org.springframework.http.converter.json.MappingJackson2HttpMessageConverter">
+                    <property name="objectMapper" ref="jaxbJacksonObjectMapper"/>
+                </bean>
+            </list>
+        </property>
+    </bean>
+
+    <bean id="marshaller" class="org.springframework.oxm.jaxb.Jaxb2Marshaller">
+        <property name="packagesToScan" >
+            <value>com.adarsh.spring.integration.entities</value>
+        </property>
+    </bean>
+
+    <bean id="jaxbJacksonObjectMapper"
+          class="com.adarsh.spring.integration.json.JaxbJacksonObjectMapper"/>
+
+</beans>

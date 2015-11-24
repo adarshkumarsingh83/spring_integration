@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:int="http://www.springframework.org/schema/integration"
+       xmlns:int-sftp="http://www.springframework.org/schema/integration/sftp"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                        http://www.springframework.org/schema/beans/spring-beans.xsd
+                        http://www.springframework.org/schema/integration
+                        http://www.springframework.org/schema/integration/spring-integration.xsd
+                        http://www.springframework.org/schema/integration/sftp
+                        http://www.springframework.org/schema/integration/sftp/spring-integration-sftp.xsd
+                        http://www.springframework.org/schema/context
+                        http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <import resource="classpath:/configuration/applicationContextSftp-Common.xml"/>
+
+    <context:component-scan base-package="com.adarsh.spring.sftp"/>
+
+    <bean id="sftpSessionFactory"
+          class="org.springframework.integration.file.remote.session.CachingSessionFactory">
+        <constructor-arg ref="defaultSftpSessionFactory"/>
+    </bean>
+
+    <bean id="defaultSftpSessionFactory"
+          class="org.springframework.integration.sftp.session.DefaultSftpSessionFactory">
+        <property name="host" value="${espark.sftp.host}"/>
+        <property name="privateKey" value="${espark.sftp.private.keyfile}"/>
+        <property name="privateKeyPassphrase" value="${espark.sftp.passphrase}"/>
+        <property name="port" value="#{serverPort}"/>
+        <property name="user" value="${espark.sftp.username}"/>
+    </bean>
+
+    <int:channel id="sftpInputChannel"/>
+
+    <int-sftp:outbound-channel-adapter id="sftpOutboundAdapter"
+                                       session-factory="sftpSessionFactory"
+                                       charset="UTF-8"
+                                       remote-file-separator="/"
+                                       channel="sftpInputChannel"
+                                       use-temporary-file-name="true"
+                                       remote-filename-generator-expression="payload.getName()+ '${espark.sftp.file.tag}'"
+                                       remote-directory="${espark.sftp.server.location}"
+                                       mode="REPLACE"/>
+
+</beans>
