@@ -1,1 +1,0 @@
- ---->[channel]---->[outbound]---->[exchange]---->[rabbitmq]---->[inbound]---->[channel]---->
