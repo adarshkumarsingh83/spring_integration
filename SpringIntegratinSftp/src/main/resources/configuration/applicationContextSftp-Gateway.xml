@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:int="http://www.springframework.org/schema/integration"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:int-sftp="http://www.springframework.org/schema/integration/sftp"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                        http://www.springframework.org/schema/beans/spring-beans.xsd
+                        http://www.springframework.org/schema/integration
+                        http://www.springframework.org/schema/integration/spring-integration.xsd
+                        http://www.springframework.org/schema/integration/sftp
+                        http://www.springframework.org/schema/integration/sftp/spring-integration-sftp.xsd
+                        http://www.springframework.org/schema/context
+                        http://www.springframework.org/schema/context/spring-context.xsd">
+
+
+    <import resource="classpath:/configuration/applicationContextSftp-Common.xml"/>
+
+    <context:component-scan base-package="com.adarsh.spring.sftp"/>
+
+    <int:gateway id="toSftpFlowGateway" service-interface="com.adarsh.spring.sftp.ToSftpFlowGateway"
+                 default-request-channel="inbound"/>
+
+    <bean id="sftpSessionFactory"
+          class="org.springframework.integration.file.remote.session.CachingSessionFactory">
+        <constructor-arg ref="defaultSftpSessionFactory"/>
+        <property name="poolSize" value="10"/>
+        <property name="sessionWaitTimeout" value="1000"/>
+    </bean>
+
+    <bean id="defaultSftpSessionFactory"
+          class="org.springframework.integration.sftp.session.DefaultSftpSessionFactory">
+        <property name="host" value="${espark.sftp.host}"/>
+        <property name="privateKey" value="${espark.sftp.private.keyfile}"/>
+        <property name="privateKeyPassphrase" value="${espark.sftp.passphrase}"/>
+        <property name="port" value="#{serverPort}"/>
+        <property name="user" value="${espark.sftp.username}"/>
+    </bean>
+
+    <int:channel id="inbound"/>
+    <int:channel id="toGetChannel"/>
+    <int:channel id="toRmChannel"/>
+    <int:channel id="toSplitterChannel"/>
+    <int:channel id="aggregateResultsChannel"/>
+
+    <int-sftp:outbound-gateway id="lsCommandSftpGateway"
+                               session-factory="sftpSessionFactory"
+                               request-channel="inbound"
+                               command="ls"
+                               command-options="-f"
+                               expression="payload"
+                               reply-channel="toSplitterChannel"/>
+
+    <int:splitter input-channel="toSplitterChannel"
+                  output-channel="toGetChannel"/>
+
+    <int-sftp:outbound-gateway id="getCommandSftpGateway"
+                               local-directory="#{ T(System).getProperty('java.io.tmpdir')}"
+                               session-factory="sftpSessionFactory"
+                               request-channel="toGetChannel"
+                               reply-channel="toRmChannel"
+                               command="get"
+                               command-options="-P"
+                               expression="payload.remoteDirectory + payload.filename"/>
+
+    <int-sftp:outbound-gateway id="rmCommandSftpGateway"
+                               reply-channel="aggregateResultsChannel"
+                               session-factory="sftpSessionFactory"
+                               expression="headers['file_remoteDirectory'] + headers['file_remoteFile']"
+                               request-channel="toRmChannel"
+                               command="rm"/>
+
+    <int:aggregator input-channel="aggregateResultsChannel"/>
+
+</beans>

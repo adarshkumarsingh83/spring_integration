@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:int="http://www.springframework.org/schema/integration"
+       xmlns:int-amqp="http://www.springframework.org/schema/integration/amqp"
+       xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+       xmlns:int-ip="http://www.springframework.org/schema/integration/ip"
+       xmlns:int-stream="http://www.springframework.org/schema/integration/stream"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="http://www.springframework.org/schema/integration/amqp
+                            http://www.springframework.org/schema/integration/amqp/spring-integration-amqp.xsd
+                            http://www.springframework.org/schema/integration/ip
+                            http://www.springframework.org/schema/integration/ip/spring-integration-ip.xsd
+                            http://www.springframework.org/schema/integration
+                            http://www.springframework.org/schema/integration/spring-integration.xsd
+                            http://www.springframework.org/schema/rabbit
+                            http://www.springframework.org/schema/rabbit/spring-rabbit.xsd
+                            http://www.springframework.org/schema/beans
+                            http://www.springframework.org/schema/beans/spring-beans.xsd
+                            http://www.springframework.org/schema/integration/stream
+                            http://www.springframework.org/schema/integration/stream/spring-integration-stream.xsd
+                            http://www.springframework.org/schema/util
+                            http://www.springframework.org/schema/util/spring-util.xsd">
+
+    <bean id="correlationIdSet" class="java.util.HashSet"/>
+
+    <!-- <int-stream:stdin-channel-adapter id="consoleIn"
+                                       channel="toRabbit">
+         <int:poller fixed-delay="1000" max-messages-per-poll="1" />
+     </int-stream:stdin-channel-adapter>-->
+
+    <!--*********************************To RabbitMQ*********************************-->
+    <!--publish an AMQP Message to the provided Exchange and expect reply -->
+    <!--<int-amqp:outbound-gateway id="toRabbitGateway"
+                               mapped-reply-headers="${app.lucas.mq.header.mapper}"
+                               return-channel="toRabbit"
+                               routing-key="${app.lucas.binding}"
+                               exchange-name="${app.lucas.exchange}"
+                               mapped-request-headers="${app.lucas.mq.header.mapper}"
+                               request-channel="toRabbit"
+                               reply-channel="toRabbit"
+                               amqp-template="rabbitTemplate"/>-->
+
+    <!-- <int:gateway default-request-channel="toRabbit"
+                  default-reply-channel="fromRabbit"
+                  service-interface="com.lucas.messaging.service.GatewayService" />-->
+
+    <int:channel id="toRabbit">
+        <int:interceptors>
+            <int:wire-tap channel="loggingChannelToRabbit"/>
+        </int:interceptors>
+    </int:channel>
+
+    <int:logging-channel-adapter id="loggingChannelToRabbit"
+                                 log-full-message="true"
+                                 level="ERROR"/>
+
+    <!--Publish an AMQP Message to the provided Exchange.-->
+    <int-amqp:outbound-channel-adapter channel="toRabbit"
+                                       return-channel="toRabbit"
+                                       amqp-template="rabbitTemplate"
+                                       confirm-correlation-expression="headers['correlationId']"
+                                       mapped-request-headers="${app.lucas.mq.header.mapper}"
+                                       exchange-name="${app.lucas.exchange}"
+                                       routing-key="${app.lucas.binding}"/>
+
+    <int:service-activator input-channel="toRabbit"
+                           ref="outputChannelProcessorServiceImpl"
+                           method="processResponse"
+                           auto-startup="true"/>
+
+    <!--*********************************From RabbitMQ*********************************-->
+
+    <!-- <int-stream:stdout-channel-adapter id="consoleOut"
+                                        channel="fromRabbit"
+                                        auto-startup="true"
+                                        append-newline="true" />-->
+
+    <!--Receive Messages sent to a given queue-->
+    <!--<int-amqp:inbound-gateway id="fromRabbitGateway"
+                              request-channel="fromRabbit"
+                              queue-names="${app.lucas.queue}"
+                              auto-startup="true"
+                              mapped-reply-headers="${app.lucas.mq.header.mapper}"
+                              mapped-request-headers="${app.lucas.mq.header.mapper}"
+                              acknowledge-mode="AUTO"
+                              connection-factory="connectionFactory"
+                              reply-channel="fromRabbit"/>-->
+
+    <int:channel id="fromRabbit">
+        <int:interceptors>
+            <int:wire-tap channel="loggingChannelFromRabbit"/>
+        </int:interceptors>
+    </int:channel>
+
+    <int:logging-channel-adapter id="loggingChannelFromRabbit"
+                                 log-full-message="true"
+                                 level="ERROR"/>
+
+    <!--Receive AMQP Messages sent to a given queue .-->
+    <int-amqp:inbound-channel-adapter channel="fromRabbit"
+                                      acknowledge-mode="AUTO"
+                                      queue-names="${app.lucas.queue}"
+                                      auto-startup="true"
+                                      mapped-request-headers="${app.lucas.mq.header.mapper}"
+                                      concurrent-consumers="100"
+                                      connection-factory="connectionFactory"/>
+
+    <int:service-activator input-channel="fromRabbit"
+                           ref="inputChannelProcessorServiceImpl"
+                           method="processRequest"
+                           auto-startup="true"
+                           requires-reply="true"
+                           output-channel="toRabbit"
+                           send-timeout="10000"/>
+
+    <!--RabbitMq Configuration -->
+    <rabbit:connection-factory id="connectionFactory"
+                               publisher-returns="true"
+                               publisher-confirms="true"
+                               host="${app.lucas.mq.host}"
+                               port="${app.lucas.amqp.port}"
+                               username="${app.lucas.mq.username}"
+                               password="${app.lucas.mq.pwd}"/>
+
+    <rabbit:template id="rabbitTemplate"
+                     queue="${app.lucas.queue}"
+                     exchange="${app.lucas.exchange}"
+                     connection-factory="connectionFactory"/>
+
+    <rabbit:template id="rabbitTemplateResponse"
+                     queue="${app.lucas.reply.queue}"
+                     exchange="${app.lucas.exchange}"
+                     connection-factory="connectionFactory"/>
+
+    <rabbit:admin id="rabbitAdmin"
+                  auto-startup="true"
+                  connection-factory="connectionFactory"/>
+
+    <rabbit:queue id="lucasQueue" name="${app.lucas.queue}"
+                  auto-delete="${app.lucas.mq.queue.auto.delete}"
+                  durable="true"/>
+
+    <rabbit:queue id="lucasReplyQueue" name="${app.lucas.reply.queue}"
+                  auto-delete="${app.lucas.mq.queue.auto.delete}"
+                  durable="true"/>
+
+    <rabbit:direct-exchange name="${app.lucas.exchange}">
+        <rabbit:bindings>
+            <rabbit:binding queue="${app.lucas.queue}"
+                            key="${app.lucas.binding}"/>
+        </rabbit:bindings>
+    </rabbit:direct-exchange>
+
+</beans>

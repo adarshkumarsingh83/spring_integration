@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:int="http://www.springframework.org/schema/integration"
+       xmlns:int-jdbc="http://www.springframework.org/schema/integration/jdbc"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation=" http://www.springframework.org/schema/integration
+                            http://www.springframework.org/schema/integration/spring-integration.xsd
+                            http://www.springframework.org/schema/integration/jdbc
+                            http://www.springframework.org/schema/integration/jdbc/spring-integration-jdbc.xsd
+                            http://www.springframework.org/schema/beans
+                            http://www.springframework.org/schema/beans/spring-beans.xsd
+                            http://www.springframework.org/schema/context
+                            http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <context:property-placeholder location="classpath*:/properties/mysql.database.properties"/>
+
+        
+    <int:channel id="createPersonRequestChannel"/>
+    <int:channel id="createPersonReplyChannel"/>
+    <int:channel id="findPersonRequestChannel"/>
+    <int:channel id="findPersonReplyChannel"/>
+    
+        
+    <int:gateway id="personService" service-interface="com.adarsh.spring.jdbc.service.PersonService">
+    	<int:method name="createPerson" 
+    				request-channel="createPersonRequestChannel"
+    				request-timeout="5000"
+    				reply-channel="createPersonReplyChannel"
+    				reply-timeout="5000"/>
+    	<int:method name="findPersonByName"
+    				request-channel="findPersonRequestChannel"
+    				request-timeout="5000"
+    				reply-channel="findPersonReplyChannel"
+    				reply-timeout="5000"/>			
+    </int:gateway>
+
+    <int-jdbc:outbound-gateway data-source="dataSource"
+        update="UPDATE DUMMY SET DUMMY_VALUE='test'"
+                               request-channel="findPersonRequestChannel" 
+                               query="${sql.person.find}"
+                               reply-channel="findPersonReplyChannel"
+                               row-mapper="personResultMapper"
+                               max-rows-per-poll="100">
+    </int-jdbc:outbound-gateway>
+
+
+	<int-jdbc:outbound-gateway data-source="dataSource"
+								request-channel="createPersonRequestChannel"
+								reply-channel="createPersonReplyChannel"
+								update="${sql.person.insert}"
+								query="${sql.person.select}"
+								request-sql-parameter-source-factory="requestSource"
+								reply-sql-parameter-source-factory="replySource"
+								row-mapper="personResultMapper"
+								keys-generated="true"/>
+	
+	<bean id="replySource"
+          class="org.springframework.integration.jdbc.ExpressionEvaluatingSqlParameterSourceFactory">
+		<property name="parameterExpressions">
+			<map>
+				<entry key="personId" value="payload.personId"/>
+			</map>
+		</property>
+	</bean>	
+
+	<bean id="requestSource"
+          class="org.springframework.integration.jdbc.ExpressionEvaluatingSqlParameterSourceFactory">
+		<property name="parameterExpressions">
+			<map>
+				<entry key="personId" value="payload.personId"/>
+				<entry key="name" value="payload.name.toUpperCase()"/>
+				<entry key="gender" value="payload.gender.identifier"/>
+				<entry key="dateOfBirth" value="payload.dateOfBirth"/>
+			</map>
+		</property>
+	</bean>	
+
+</beans>

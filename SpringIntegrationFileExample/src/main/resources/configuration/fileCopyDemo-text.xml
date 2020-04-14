@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:integration="http://www.springframework.org/schema/integration"
+       xmlns:file="http://www.springframework.org/schema/integration/file"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                           http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/context
+                           http://www.springframework.org/schema/context/spring-context.xsd
+                           http://www.springframework.org/schema/integration
+                           http://www.springframework.org/schema/integration/spring-integration.xsd
+                           http://www.springframework.org/schema/integration/file
+                           http://www.springframework.org/schema/integration/file/spring-integration-file.xsd">
+
+    <context:component-scan base-package="com.adarsh.spring" />
+
+    <context:property-placeholder location="classpath:/properties/application.properties"/>
+
+    <file:inbound-channel-adapter id="fileInboundChannelAdapter"
+                                  directory="file:${input.dir.path}"
+                                  filename-regex="[a-z]*.txt"
+                                  prevent-duplicates="true">
+        <integration:poller id="poller" fixed-delay="5000"/>
+    </file:inbound-channel-adapter>
+
+    <file:file-to-string-transformer input-channel="fileInboundChannelAdapter"
+                                     output-channel="strings"/>
+    <integration:channel id="strings"/>
+
+    <integration:service-activator input-channel="strings"
+                                   output-channel="fileOutboundChannelAdapter"
+                                   ref="handler"/>
+
+    <file:outbound-channel-adapter id="fileOutboundChannelAdapter"
+                                   directory="file:${output.dir.path}"/>
+
+</beans>

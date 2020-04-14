@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:int="http://www.springframework.org/schema/integration"
+       xmlns:int-sftp="http://www.springframework.org/schema/integration/sftp"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                        http://www.springframework.org/schema/beans/spring-beans.xsd
+                        http://www.springframework.org/schema/integration
+                        http://www.springframework.org/schema/integration/spring-integration.xsd
+                        http://www.springframework.org/schema/integration/sftp
+                        http://www.springframework.org/schema/integration/sftp/spring-integration-sftp.xsd
+                        http://www.springframework.org/schema/context
+                        http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <import resource="classpath:/configuration/applicationContextSftp-Common.xml"/>
+
+    <context:component-scan base-package="com.adarsh.spring.sftp"/>
+
+    <bean id="sftpSessionFactory"
+          class="org.springframework.integration.file.remote.session.CachingSessionFactory">
+		<constructor-arg ref="defaultSftpSessionFactory" />
+	</bean>
+
+    <bean id="defaultSftpSessionFactory"
+          class="org.springframework.integration.sftp.session.DefaultSftpSessionFactory">
+        <property name="host" value="${espark.sftp.host}"/>
+        <property name="privateKey" value="${espark.sftp.private.keyfile}"/>
+        <property name="privateKeyPassphrase" value="${espark.sftp.passphrase}"/>
+        <property name="port" value="#{serverPort}"/>
+        <property name="user" value="${espark.sftp.username}"/>
+    </bean>
+
+    <int-sftp:inbound-channel-adapter id="sftpInboundChannelAdapter"
+                                      auto-startup="false"
+                                      channel="sftpInputChannel"
+                                      session-factory="sftpSessionFactory"
+                                      local-directory="file:local-dir"
+                                      preserve-timestamp="true"
+                                      remote-directory="${espark.sftp.server.location}"
+                                      auto-create-local-directory="true"
+                                      delete-remote-files="false"
+                                      temporary-file-suffix=".writing"
+                                      filename-regex=".*\.txt$">
+        <int:poller fixed-rate="1000" max-messages-per-poll="1" />
+    </int-sftp:inbound-channel-adapter>
+
+    <int:channel id="sftpInputChannel">
+        <int:queue capacity="10"/>
+    </int:channel>
+
+</beans>
