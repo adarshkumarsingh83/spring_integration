@@ -55,7 +55,7 @@
         <java.version>1.7</java.version>
         <junit.version>4.8.1</junit.version>
         <spring.version>4.1.1.RELEASE</spring.version>
-        <spring.security.version>3.2.4.RELEASE</spring.security.version>
+        <spring.security.version>5.2.10.RELEASE</spring.security.version>
     </properties>
 
     <dependencies>
