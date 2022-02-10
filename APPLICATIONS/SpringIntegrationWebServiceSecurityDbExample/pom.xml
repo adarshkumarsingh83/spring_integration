@@ -56,7 +56,7 @@
         <junit.version>4.11</junit.version>
         <spring.version>4.1.1.RELEASE</spring.version>
         <spring.security.version>3.2.4.RELEASE</spring.security.version>
-        <hibernate.version>4.3.5.Final</hibernate.version>
+        <hibernate.version>5.4.24.Final</hibernate.version>
         <mysql.connector.version>5.1.21</mysql.connector.version>
     </properties>
 
